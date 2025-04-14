@@ -11,7 +11,7 @@ int FlightModel::rowCount(const QModelIndex &parent) const
 int FlightModel::columnCount(const QModelIndex &parent) const
 {
     Q_UNUSED(parent);
-    return 3; // Номер рейса, Время, Аэропорт
+    return m_headers.size();
 }
 
 QVariant FlightModel::data(const QModelIndex &index, int role) const
@@ -22,10 +22,13 @@ QVariant FlightModel::data(const QModelIndex &index, int role) const
     if (role == Qt::DisplayRole) {
         const auto &flight = m_flights.at(index.row());
 
-        switch (index.column()) {
+        switch(index.column()) {
         case 0: return flight.flightNo;
-        case 1: return flight.time.toString("HH:mm");
-        case 2: return flight.airport;
+        case 1: return m_isArrival ? flight.scheduledArrival.toString("HH:mm")
+                               : flight.scheduledDeparture.toString("HH:mm");
+        case 2: return m_isArrival ? flight.departureAirport
+                               : flight.arrivalAirport;
+        case 3: return flight.status;
         }
     }
 
@@ -37,12 +40,7 @@ QVariant FlightModel::headerData(int section, Qt::Orientation orientation, int r
     if (role != Qt::DisplayRole || orientation != Qt::Horizontal)
         return QVariant();
 
-    switch (section) {
-    case 0: return "Номер рейса";
-    case 1: return m_isArrival ? "Время прилета" : "Время вылета";
-    case 2: return m_isArrival ? "Аэропорт отправления" : "Аэропорт назначения";
-    default: return QVariant();
-    }
+    return m_headers.value(section);
 }
 
 void FlightModel::setFlights(const QVector<DBManager::Flight> &flights, bool isArrival)

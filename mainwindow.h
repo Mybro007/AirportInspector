@@ -20,10 +20,11 @@ public:
 
 private slots:
     void handleConnectionChange(bool connected);
+    void onAirportsLoaded(bool success);
+    void onReconnectClicked();
     void loadAirports();
     void loadFlights();
     void showStatistics();
-    void showDemoData();
 
 private:
     Ui::MainWindow *ui;
@@ -34,6 +35,7 @@ private:
     void setupUI();
     void setupConnections();
     void initializeData();
+    void lockInterface(bool lock);
 };
 
 #endif // MAINWINDOW_H

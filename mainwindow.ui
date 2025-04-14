@@ -111,6 +111,16 @@
         </widget>
        </item>
        <item>
+        <widget class="QPushButton" name="reconnectButton">
+         <property name="text">
+          <string>Переподключиться</string>
+         </property>
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
+        </widget>
+       </item>
+       <item>
         <widget class="QPushButton" name="exitButton">
          <property name="text">
           <string>Выход</string>
@@ -172,6 +182,18 @@
    <hints>
     <hint type="sourcelabel">
      <x>248</x>
+     <y>243</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>400</x>
+     <y>300</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <hints>
+    <hint type="sourcelabel">
+     <x>346</x>
      <y>243</y>
     </hint>
     <hint type="destinationlabel">

@@ -2,6 +2,9 @@
 #include "ui_mainwindow.h"
 #include <QMessageBox>
 #include <QDateTime>
+#include <QApplication>
+#include <QStatusBar>
+#include "StatisticsDialog.h"
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -11,36 +14,42 @@ MainWindow::MainWindow(QWidget *parent)
     , m_flightModel(new FlightModel(this))
 {
     ui->setupUi(this);
-
-    // Настройка интерфейса
     setupUI();
     setupConnections();
-
-    // Инициализация данных
     initializeData();
+}
+
+MainWindow::~MainWindow()
+{
+    delete ui;
 }
 
 void MainWindow::setupUI()
 {
-    // Настройка элементов интерфейса
     ui->dateEdit->setDate(QDate::currentDate());
     ui->dateEdit->setMinimumDate(QDate(2016, 8, 15));
     ui->dateEdit->setMaximumDate(QDate(2017, 9, 14));
 
-    // Настройка таблицы
     ui->flightsTableView->setModel(m_flightModel);
     ui->flightsTableView->horizontalHeader()->setStretchLastSection(true);
+
+    ui->reconnectButton->setEnabled(false);
+
+    // Инициализация статусбара
+    handleConnectionChange(m_dbConnection->isConnected());
 }
 
 void MainWindow::setupConnections()
 {
-    // Подключение сигналов БД
     connect(m_dbConnection, &DBConnection::connectionStatusChanged,
             this, &MainWindow::handleConnectionChange);
 
-    // Кнопки интерфейса
+    connect(ui->reconnectButton, &QPushButton::clicked,
+            this, &MainWindow::onReconnectClicked);
+
     connect(ui->showFlightsButton, &QPushButton::clicked,
             this, &MainWindow::loadFlights);
+
     connect(ui->showStatisticsButton, &QPushButton::clicked,
             this, &MainWindow::showStatistics);
 }
@@ -49,30 +58,48 @@ void MainWindow::initializeData()
 {
     if (m_dbConnection->isConnected()) {
         m_dbManager = new DBManager(this);
-        loadAirports();
-    } else {
-        showDemoData();
+        connect(m_dbManager, &DBManager::airportsLoaded, this, &MainWindow::onAirportsLoaded);
+        m_dbManager->loadAirports();
     }
 }
 
 void MainWindow::handleConnectionChange(bool connected)
 {
-    // Обновление статусбара
-    QString status = connected ? "Подключено к БД" : "Отключено: " + m_dbConnection->lastError();
-    ui->statusBar->showMessage(status);
+    if (connected) {
+        ui->statusBar->showMessage("Подключено", 0);
+        ui->statusBar->setStyleSheet("color: green;");
+    } else {
+        ui->statusBar->showMessage("Отключено", 0);
+        ui->statusBar->setStyleSheet("color: red;");
+    }
 
-    // Блокировка/разблокировка интерфейса
-    ui->airportComboBox->setEnabled(connected);
-    ui->dateEdit->setEnabled(connected);
-    ui->arrivalRadio->setEnabled(connected);
-    ui->departureRadio->setEnabled(connected);
-    ui->showFlightsButton->setEnabled(connected);
-    ui->showStatisticsButton->setEnabled(connected);
+    ui->reconnectButton->setEnabled(!connected);
 
     if (connected && !m_dbManager) {
         m_dbManager = new DBManager(this);
-        loadAirports();
+        connect(m_dbManager, &DBManager::airportsLoaded, this, &MainWindow::onAirportsLoaded);
+        m_dbManager->loadAirports();
+    } else if (!connected) {
+        lockInterface(true);
     }
+}
+
+void MainWindow::onAirportsLoaded(bool success)
+{
+    if (success) {
+        loadAirports();
+    } else {
+        ui->statusBar->showMessage("Ошибка загрузки аэропортов", 3000);
+    }
+}
+
+void MainWindow::onReconnectClicked()
+{
+    ui->statusBar->showMessage("Переподключение...", 0);
+    ui->reconnectButton->setEnabled(false);
+    QApplication::setOverrideCursor(Qt::WaitCursor);
+    m_dbConnection->forceReconnect();
+    QTimer::singleShot(500, [](){ QApplication::restoreOverrideCursor(); });
 }
 
 void MainWindow::loadAirports()
@@ -83,13 +110,15 @@ void MainWindow::loadAirports()
     auto airports = m_dbManager->getAirports();
 
     if (airports.isEmpty()) {
-        ui->airportComboBox->addItem("Нет данных", "");
+        ui->statusBar->showMessage("Не удалось загрузить аэропорты", 3000);
         return;
     }
 
     for (const auto &airport : airports) {
         ui->airportComboBox->addItem(airport.name, airport.code);
     }
+
+    lockInterface(false);
 }
 
 void MainWindow::loadFlights()
@@ -103,22 +132,15 @@ void MainWindow::loadFlights()
     QDate date = ui->dateEdit->date();
     bool isArrival = ui->arrivalRadio->isChecked();
 
-    QVector<DBManager::Flight> flights = isArrival
-                                             ? m_dbManager->getArrivals(airportCode, date)
-                                             : m_dbManager->getDepartures(airportCode, date);
+    QApplication::setOverrideCursor(Qt::WaitCursor);
+    QVector<DBManager::Flight> flights = m_dbManager->getFlights(airportCode, date, isArrival);
+    QApplication::restoreOverrideCursor();
 
     m_flightModel->setFlights(flights, isArrival);
-}
 
-void MainWindow::showDemoData()
-{
-    // Заполнение демо-данными при отсутствии подключения
-    ui->airportComboBox->clear();
-    ui->airportComboBox->addItem("Демо-аэропорт (режим оффлайн)", "DEMO");
-
-    QMessageBox::information(this, "Информация",
-                             "Работаем в демо-режиме. Функционал ограничен.\n"
-                             "Ошибка подключения: " + m_dbConnection->lastError());
+    if (flights.isEmpty()) {
+        ui->statusBar->showMessage("Нет рейсов для выбранных параметров", 3000);
+    }
 }
 
 void MainWindow::showStatistics()
@@ -127,10 +149,25 @@ void MainWindow::showStatistics()
         QMessageBox::warning(this, "Ошибка", "Нет подключения к базе данных");
         return;
     }
-    // ... реализация показа статистики
+
+    if (ui->airportComboBox->currentIndex() < 0) {
+        QMessageBox::warning(this, "Ошибка", "Выберите аэропорт");
+        return;
+    }
+
+    QString airportName = ui->airportComboBox->currentText();
+    QString airportCode = ui->airportComboBox->currentData().toString();
+
+    StatisticsDialog dialog(airportName, airportCode, m_dbManager, this);
+    dialog.exec();
 }
 
-MainWindow::~MainWindow()
+void MainWindow::lockInterface(bool lock)
 {
-    delete ui;
+    ui->airportComboBox->setEnabled(!lock);
+    ui->dateEdit->setEnabled(!lock);
+    ui->arrivalRadio->setEnabled(!lock);
+    ui->departureRadio->setEnabled(!lock);
+    ui->showFlightsButton->setEnabled(!lock);
+    ui->showStatisticsButton->setEnabled(!lock);
 }

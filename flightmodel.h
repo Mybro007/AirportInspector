@@ -20,6 +20,7 @@ public:
 private:
     QVector<DBManager::Flight> m_flights;
     bool m_isArrival;
+    QStringList m_headers = {"Номер рейса", "Время", "Аэропорт", "Статус"};
 };
 
 #endif // FLIGHTMODEL_H

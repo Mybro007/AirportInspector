@@ -25,6 +25,7 @@ public:
 
 signals:
     void connectionStatusChanged(bool isConnected);
+    void connectionError(const QString &error);  // Добавляем новый сигнал
 
 private slots:
     void attemptReconnect();

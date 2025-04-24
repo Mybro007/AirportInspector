@@ -33,9 +33,23 @@ void StatisticsDialog::setupYearChart()
     QBarSet *barSet = new QBarSet("Рейсов за месяц");
 
     QStringList categories;
-    for (const auto &item : stats) {
-        *barSet << item.count;
-        categories << item.date.toString("MMM yyyy");
+    QDate minDate(2016, 8, 1);
+    QDate maxDate(2017, 9, 1);
+
+    // Создаем все месяцы в диапазоне
+    for (QDate date = minDate; date <= maxDate; date = date.addMonths(1)) {
+        bool found = false;
+        for (const auto &item : stats) {
+            if (item.date.toString("yyyy-MM") == date.toString("yyyy-MM")) {
+                *barSet << item.count;
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            *barSet << 0;
+        }
+        categories << date.toString("MMM yyyy");
     }
 
     series->append(barSet);
@@ -80,10 +94,23 @@ void StatisticsDialog::loadMonthData(int month)
     series->setName("Рейсов за день");
 
     int maxValue = 0;
-    for (const auto &item : stats) {
-        series->append(item.date.day(), item.count);
-        if (item.count > maxValue) {
-            maxValue = item.count;
+    QDate monthDate(2016, month, 1);
+
+    // Заполняем все дни месяца
+    for (int day = 1; day <= monthDate.daysInMonth(); ++day) {
+        bool found = false;
+        for (const auto &item : stats) {
+            if (item.date.day() == day) {
+                series->append(day, item.count);
+                if (item.count > maxValue) {
+                    maxValue = item.count;
+                }
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            series->append(day, 0);
         }
     }
 

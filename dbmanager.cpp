@@ -110,8 +110,9 @@ QVector<DBManager::StatisticsItem> DBManager::getYearStatistics(const QString &a
     QString sql = QString(
                       "SELECT DATE_TRUNC('month', scheduled_departure) AS month, "
                       "COUNT(*) AS count "
-                      "FROM bookings.flights "
-                      "WHERE departure_airport = '%1' "
+                      "FROM bookings.flights f "
+                      "WHERE (departure_airport = '%1' OR arrival_airport = '%1') "
+                      "AND scheduled_departure BETWEEN '2016-08-15' AND '2017-09-14' "
                       "GROUP BY month "
                       "ORDER BY month"
                       ).arg(airportCode);
@@ -136,9 +137,10 @@ QVector<DBManager::StatisticsItem> DBManager::getMonthStatistics(const QString &
     QString sql = QString(
                       "SELECT DATE(scheduled_departure) AS day, "
                       "COUNT(*) AS count "
-                      "FROM bookings.flights "
-                      "WHERE departure_airport = '%1' "
+                      "FROM bookings.flights f "
+                      "WHERE (departure_airport = '%1' OR arrival_airport = '%1') "
                       "AND EXTRACT(MONTH FROM scheduled_departure) = %2 "
+                      "AND scheduled_departure BETWEEN '2016-08-15' AND '2017-09-14' "
                       "GROUP BY day "
                       "ORDER BY day"
                       ).arg(airportCode).arg(month);

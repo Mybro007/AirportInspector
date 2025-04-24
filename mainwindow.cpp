@@ -52,6 +52,9 @@ void MainWindow::setupConnections()
 
     connect(ui->showStatisticsButton, &QPushButton::clicked,
             this, &MainWindow::showStatistics);
+
+    connect(m_dbConnection, &DBConnection::connectionError,
+            this, &MainWindow::showConnectionError);
 }
 
 void MainWindow::initializeData()
@@ -61,6 +64,12 @@ void MainWindow::initializeData()
         connect(m_dbManager, &DBManager::airportsLoaded, this, &MainWindow::onAirportsLoaded);
         m_dbManager->loadAirports();
     }
+}
+
+void MainWindow::showConnectionError(const QString &error)
+{
+    QMessageBox::critical(this, "Ошибка подключения",
+                          "Не удалось подключиться к базе данных:\n" + error);
 }
 
 void MainWindow::handleConnectionChange(bool connected)

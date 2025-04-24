@@ -25,6 +25,7 @@ private slots:
     void loadAirports();
     void loadFlights();
     void showStatistics();
+    void showConnectionError(const QString &error);
 
 private:
     Ui::MainWindow *ui;

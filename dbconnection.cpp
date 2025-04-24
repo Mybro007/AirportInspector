@@ -49,6 +49,7 @@ void DBConnection::attemptReconnect()
     } else {
         m_lastError = m_db.lastError().text();
         qCritical() << "Ошибка подключения:" << m_lastError;
+        emit connectionError(m_lastError);  // Генерируем сигнал с ошибкой
         m_reconnectTimer->start();
     }
     updateConnectionState();
